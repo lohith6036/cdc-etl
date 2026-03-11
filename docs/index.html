@@ -35,10 +35,27 @@
             <div class="glass-card">
                 <h2><span class="icon">⟳</span> Batch CDC Pipeline</h2>
                 <p>Designed for periodic synchronization, the batch pipeline utilizes PySpark's JDBC capabilities to reconcile state within Apache Iceberg table formats.</p>
+                
                 <div class="diagram-container">
                     <img src="assets/batch_cdc_diagram.png" alt="Batch CDC Architecture Diagram">
                 </div>
-                <p><strong>Workflow:</strong> Periodic extraction via JDBC -> MERGE INTO reconciliation -> Final state synchronization in the Hadoop Catalog.</p>
+
+                <div class="tech-details">
+                    <h3>Technical Deep-Dive: JDBC & Merge</h3>
+                    <ul class="details-list">
+                        <li><strong>Extraction:</strong> Uses the <code>mysql-connector-j</code> driver to pull full snapshots or delta sets directly from MySQL.</li>
+                        <li><strong>Table Format:</strong> Targets <strong>Apache Iceberg V2</strong> specifically for its <em>Merge-on-Read</em> capabilities, which optimizes write performance for high-frequency updates.</li>
+                        <li><strong>ACID Guarantees:</strong> Leverages Spark's distributed processing to ensure atomic commits to the metadata layer.</li>
+                    </ul>
+                    <div class="code-block">
+                        <span class="keyword">MERGE INTO</span> local.cdc_db.customers target<br>
+                        <span class="keyword">USING</span> source_updates source<br>
+                        <span class="keyword">ON</span> target.id = source.id<br>
+                        <span class="keyword">WHEN MATCHED AND</span> source.is_deleted = <span class="keyword">true THEN DELETE</span><br>
+                        <span class="keyword">WHEN MATCHED THEN UPDATE SET</span> *<br>
+                        <span class="keyword">WHEN NOT MATCHED THEN INSERT</span> *
+                    </div>
+                </div>
             </div>
         </section>
 
@@ -46,10 +63,41 @@
             <div class="glass-card">
                 <h2><span class="icon">⚡</span> Real-Time Streaming CDC</h2>
                 <p>The streaming pipeline leverages MySQL binlog mining to propagate changes with sub-second latency through a distributed messaging layer.</p>
+                
                 <div class="diagram-container">
                     <img src="assets/streaming_cdc_diagram.png" alt="Streaming CDC Architecture Diagram">
                 </div>
-                <p><strong>Workflow:</strong> Row-level change capture via Debezium -> Kafka transport -> Spark Structured Streaming ingestion -> Deduplicated Merge to Iceberg.</p>
+
+                <div class="tech-details">
+                    <h3>Technical Deep-Dive: Debezium & Spark</h3>
+                    <ul class="details-list">
+                        <li><strong>Binlog Mining:</strong> Debezium's MySQL Connector acts as a replica, reading the <code>binlog</code> directly. This captures every <em>Insert</em>, <em>Update</em>, and <em>Delete</em> without querying the database.</li>
+                        <li><strong>Event Transport:</strong> Each row-level change is serialized into a JSON event and published to a dedicated <strong>Kafka</strong> topic (<code>cdc_server.cdc_demo.customers</code>).</li>
+                        <li><strong>Micro-Batch Deduplication:</strong> Within each Spark micro-batch, we handle high-frequency updates using a Window function to ensure only the latest state (per <code>id</code>) is merged into Iceberg.</li>
+                    </ul>
+                    <div class="code-block">
+                        <span class="comment">-- Deduplication in micro-batch</span><br>
+                        <span class="keyword">SELECT</span> * <span class="keyword">FROM</span> (<br>
+                        &nbsp;&nbsp;<span class="keyword">SELECT</span> id, ..., <span class="keyword">ROW_NUMBER</span>() <span class="keyword">OVER</span> (<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">PARTITION BY</span> id <span class="keyword">ORDER BY</span> updated_at <span class="keyword">DESC</span><br>
+                        &nbsp;&nbsp;) <span class="keyword">as</span> rn <span class="keyword">FROM</span> raw_updates<br>
+                        ) <span class="keyword">WHERE</span> rn = 1
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="reliability">
+            <div class="glass-card">
+                <h2><span class="icon">✔</span> Fault Tolerance & State</h2>
+                <p>Ensuring system reliability and exactly-once processing guarantees across the asynchronous pipeline.</p>
+                <div class="tech-details">
+                    <ul class="details-list">
+                        <li><strong>Exactly-Once:</strong> Enabled via Spark's <strong>Checkpointing</strong>, which persists the current Kafka offsets to durable storage (HDFS/S3), allowing resumes after failure.</li>
+                        <li><strong>Schema Evolution:</strong> Apache Iceberg supports full schema evolution (add/drop/rename columns) without rewriting the entire dataset.</li>
+                        <li><strong>Idempotent Merges:</strong> The <code>MERGE INTO</code> logic ensures that processing the same event twice results in the same final state.</li>
+                    </ul>
+                </div>
             </div>
         </section>
 

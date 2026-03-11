@@ -171,6 +171,56 @@ footer {
     border-top: 1px solid var(--glass-border);
 }
 
+.tech-details {
+    margin-top: 1.5rem;
+    padding: 1.5rem;
+    background: rgba(0, 0, 0, 0.2);
+    border-left: 4px solid var(--accent-color);
+    border-radius: 4px 12px 12px 4px;
+}
+
+.tech-details h3 {
+    font-size: 1.2rem;
+    margin-bottom: 0.8rem;
+    color: var(--text-primary);
+}
+
+.code-block {
+    background: #010409;
+    padding: 1rem;
+    border-radius: 8px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.9rem;
+    margin: 1rem 0;
+    overflow-x: auto;
+    border: 1px solid var(--glass-border);
+    color: #d1d5da;
+}
+
+.keyword { color: #ff7b72; }
+.comment { color: #8b949e; }
+.string { color: #a5d6ff; }
+.function { color: #d2a8ff; }
+
+ul.details-list {
+    list-style: none;
+    margin-bottom: 1rem;
+}
+
+ul.details-list li {
+    padding-left: 1.5rem;
+    position: relative;
+    margin-bottom: 0.8rem;
+    color: var(--text-secondary);
+}
+
+ul.details-list li::before {
+    content: "→";
+    position: absolute;
+    left: 0;
+    color: var(--accent-color);
+}
+
 @keyframes fadeInDown {
     from {
         opacity: 0;
