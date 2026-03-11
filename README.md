@@ -34,7 +34,6 @@ graph LR
     Spark -- "MERGE INTO" --> Iceberg
 ```
 
-![Batch CDC Diagram](batch_cdc_diagram.png)
 
 ### Batch Data Flow:
 1. **Extraction**: Spark connects to MySQL using a JDBC driver.
@@ -73,7 +72,7 @@ graph TD
     SStreaming -- "Deduplicated Merge" --> Lake
 ```
 
-![Streaming CDC Diagram](streaming_cdc_diagram.png)
+
 
 ### Streaming Data Flow:
 1. **Capture**: Debezium monitors MySQL binlogs and creates an event for every Row-Level Change (Insert/Update/Delete).
