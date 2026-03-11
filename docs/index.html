@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CDC ETL | Modern Data Pipeline Architecture</title>
+    <meta name="description" content="Technical overview of Batch and Real-Time Streaming CDC synchronization patterns using MySQL, Debezium, Kafka, Spark, and Apache Iceberg.">
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>CDC ETL Architecture</h1>
+            <p class="subtitle">A deep dive into high-performance Batch and Real-Time synchronization patterns for modern data lakes.</p>
+        </header>
+
+        <section id="overview">
+            <div class="glass-card">
+                <h2><span class="icon">◈</span> System Components</h2>
+                <p>Establishing a robust data bridge between operational databases and high-performance warehouse formats.</p>
+                <div class="tech-stack">
+                    <span class="tech-tag">MySQL</span>
+                    <span class="tech-tag">Debezium</span>
+                    <span class="tech-tag">Apache Kafka</span>
+                    <span class="tech-tag">PySpark</span>
+                    <span class="tech-tag">Apache Iceberg</span>
+                </div>
+            </div>
+        </section>
+
+        <section id="batch">
+            <div class="glass-card">
+                <h2><span class="icon">⟳</span> Batch CDC Pipeline</h2>
+                <p>Designed for periodic synchronization, the batch pipeline utilizes PySpark's JDBC capabilities to reconcile state within Apache Iceberg table formats.</p>
+                <div class="diagram-container">
+                    <img src="assets/batch_cdc_diagram.png" alt="Batch CDC Architecture Diagram">
+                </div>
+                <p><strong>Workflow:</strong> Periodic extraction via JDBC -> MERGE INTO reconciliation -> Final state synchronization in the Hadoop Catalog.</p>
+            </div>
+        </section>
+
+        <section id="streaming">
+            <div class="glass-card">
+                <h2><span class="icon">⚡</span> Real-Time Streaming CDC</h2>
+                <p>The streaming pipeline leverages MySQL binlog mining to propagate changes with sub-second latency through a distributed messaging layer.</p>
+                <div class="diagram-container">
+                    <img src="assets/streaming_cdc_diagram.png" alt="Streaming CDC Architecture Diagram">
+                </div>
+                <p><strong>Workflow:</strong> Row-level change capture via Debezium -> Kafka transport -> Spark Structured Streaming ingestion -> Deduplicated Merge to Iceberg.</p>
+            </div>
+        </section>
+
+        <section id="comparison">
+            <div class="glass-card">
+                <h2><span class="icon">⚖</span> Architectural Comparison</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Feature</th>
+                            <th>Batch Pipeline</th>
+                            <th>Streaming Pipeline</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Latency</td>
+                            <td>High (Minutes/Hours)</td>
+                            <td>Low (Sub-second)</td>
+                        </tr>
+                        <tr>
+                            <td>Source Impact</td>
+                            <td>High (Heavy Queries)</td>
+                            <td>Minimal (Log Mining)</td>
+                        </tr>
+                        <tr>
+                            <td>Complexity</td>
+                            <td>Lower</td>
+                            <td>Higher (Kafka Required)</td>
+                        </tr>
+                        <tr>
+                            <td>Reliability</td>
+                            <td>Snapshot Isolation</td>
+                            <td>Exactly-once Checkpointing</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <footer>
+            <p>&copy; 2026 CDC-ETL Project. Powered by GitHub Pages.</p>
+        </footer>
+    </div>
+
+    <script>
+        // Simple Intersection Observer for scroll animations
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, { threshold: 0.1 });
+
+        document.querySelectorAll('section').forEach(section => {
+            observer.observe(section);
+        });
+    </script>
+</body>
+</html>
