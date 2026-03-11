@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>CDC ETL Pipeline Architectures</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Barlow:wght@300;400;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --bg:#080c14;
+  --panel:#0d1420;
+  --border:#1e2d45;
+  --cyan:#00d4ff;
+  --green:#00ff9d;
+  --orange:#ff7b00;
+  --red:#ff3d6b;
+  --yellow:#ffd166;
+  --text:#c8d8f0;
+  --muted:#4a6080;
+  --white:#f0f6ff;
+}
+
+body{
+  background:var(--bg);
+  font-family:'Barlow',sans-serif;
+  color:var(--text);
+  min-height:100vh;
+  overflow-x:hidden;
+}
+
+/* grid bg */
+body::before{
+  content:'';
+  position:fixed;inset:0;
+  background-image:
+    linear-gradient(rgba(0,212,255,0.03) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,212,255,0.03) 1px,transparent 1px);
+  background-size:40px 40px;
+  pointer-events:none;z-index:0;
+}
+
+.page{position:relative;z-index:1;padding:40px 24px 80px;}
+
+/* header */
+.header{text-align:center;margin-bottom:60px;}
+.header .eyebrow{
+  font-family:'JetBrains Mono',monospace;
+  font-size:11px;font-weight:600;
+  letter-spacing:0.2em;text-transform:uppercase;
+  color:var(--cyan);opacity:0.7;margin-bottom:12px;
+}
+.header h1{
+  font-size:clamp(28px,5vw,48px);
+  font-weight:800;color:var(--white);
+  letter-spacing:-0.02em;line-height:1.1;
+}
+.header h1 span{color:var(--cyan);}
+.header p{
+  margin-top:12px;font-size:15px;
+  color:var(--muted);font-weight:300;max-width:520px;margin-inline:auto;
+}
+
+/* tabs */
+.tabs{display:flex;justify-content:center;gap:8px;margin-bottom:40px;}
+.tab{
+  padding:10px 24px;border-radius:6px;border:1px solid var(--border);
+  background:transparent;color:var(--muted);
+  font-family:'Barlow',sans-serif;font-size:13px;font-weight:600;
+  cursor:pointer;transition:all 0.2s;letter-spacing:0.04em;
+}
+.tab.active-rt{border-color:var(--cyan);color:var(--cyan);background:rgba(0,212,255,0.08);}
+.tab.active-batch{border-color:var(--green);color:var(--green);background:rgba(0,255,157,0.08);}
+.tab:hover{opacity:0.8;}
+
+/* pipeline wrapper */
+.pipeline-section{display:none;animation:fadeIn 0.3s ease;}
+.pipeline-section.visible{display:block;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* pipeline canvas */
+.pipeline-wrap{
+  max-width:1000px;margin:0 auto;
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:20px;
+  padding:40px 32px;
+  position:relative;
+  overflow:hidden;
+}
+.pipeline-wrap::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+}
+.rt-pipeline .pipeline-wrap::before{background:linear-gradient(90deg,transparent,var(--cyan),transparent);}
+.batch-pipeline .pipeline-wrap::before{background:linear-gradient(90deg,transparent,var(--green),transparent);}
+
+.pipeline-title{
+  font-family:'JetBrains Mono',monospace;
+  font-size:11px;font-weight:700;
+  letter-spacing:0.18em;text-transform:uppercase;
+  margin-bottom:36px;display:flex;align-items:center;gap:10px;
+}
+.rt-pipeline .pipeline-title{color:var(--cyan);}
+.batch-pipeline .pipeline-title{color:var(--green);}
+.pill{
+  font-size:10px;padding:3px 10px;border-radius:20px;
+  font-weight:700;letter-spacing:0.1em;
+}
+.rt-pipeline .pill{background:rgba(0,212,255,0.12);color:var(--cyan);}
+.batch-pipeline .pill{background:rgba(0,255,157,0.12);color:var(--green);}
+
+/* nodes row */
+.nodes{
+  display:flex;align-items:center;
+  justify-content:center;
+  gap:0;
+  flex-wrap:nowrap;
+  overflow-x:auto;
+  padding-bottom:8px;
+}
+
+/* single node */
+.node{
+  display:flex;flex-direction:column;align-items:center;
+  gap:10px;flex-shrink:0;
+}
+.node-box{
+  width:110px;min-height:90px;
+  border-radius:12px;
+  border:1px solid;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  gap:6px;padding:14px 10px;
+  position:relative;overflow:hidden;
+  transition:transform 0.2s,box-shadow 0.2s;
+  cursor:default;
+}
+.node-box:hover{transform:translateY(-3px);}
+.node-box::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(255,255,255,0.04),transparent);
+  pointer-events:none;
+}
+.node-icon{font-size:26px;line-height:1;}
+.node-name{
+  font-family:'JetBrains Mono',monospace;
+  font-size:10px;font-weight:700;
+  letter-spacing:0.08em;text-align:center;
+  text-transform:uppercase;
+}
+.node-sub{
+  font-size:10px;color:var(--muted);text-align:center;
+  font-weight:400;line-height:1.3;
+}
+.node-label{
+  font-size:11px;color:var(--muted);
+  font-weight:600;letter-spacing:0.04em;
+  text-align:center;max-width:110px;
+  font-family:'JetBrains Mono',monospace;
+}
+
+/* color themes per node type */
+.n-postgres{border-color:#336699;background:rgba(51,102,153,0.12);}
+.n-postgres .node-name{color:#6ba3d6;}
+.n-debezium{border-color:#e8533a;background:rgba(232,83,58,0.1);}
+.n-debezium .node-name{color:#f07060;}
+.n-kafka{border-color:#ff6b35;background:rgba(255,107,53,0.1);}
+.n-kafka .node-name{color:var(--orange);}
+.n-spark{border-color:#e25d00;background:rgba(226,93,0,0.1);}
+.n-spark .node-name{color:#f07a20;}
+.n-airflow{border-color:#017cee;background:rgba(1,124,238,0.1);}
+.n-airflow .node-name{color:#40a0f5;}
+.n-python{border-color:#3776ab;background:rgba(55,118,171,0.1);}
+.n-python .node-name{color:#5ba3d9;}
+.n-aws{border-color:#ff9900;background:rgba(255,153,0,0.1);}
+.n-aws .node-name{color:var(--yellow);}
+.n-docker{border-color:#2496ed;background:rgba(36,150,237,0.1);}
+.n-docker .node-name{color:#55aaff;}
+.n-sink{border-color:#00cc7a;background:rgba(0,204,122,0.1);}
+.n-sink .node-name{color:var(--green);}
+
+/* connector */
+.connector{
+  display:flex;flex-direction:column;align-items:center;
+  justify-content:center;flex-shrink:0;
+  width:56px;position:relative;
+  padding-bottom:34px;/* offset for label area */
+}
+.conn-line{
+  width:100%;height:2px;
+  position:relative;overflow:visible;
+}
+.conn-line svg{width:100%;height:24px;overflow:visible;}
+.conn-label{
+  font-family:'JetBrains Mono',monospace;
+  font-size:9px;color:var(--muted);
+  letter-spacing:0.06em;text-align:center;
+  white-space:nowrap;margin-top:4px;
+}
+
+/* animated dot on connector */
+@keyframes slideDot{
+  0%{left:-6px;opacity:0}
+  10%{opacity:1}
+  90%{opacity:1}
+  100%{left:calc(100% + 6px);opacity:0}
+}
+.dot{
+  position:absolute;top:50%;transform:translateY(-50%);
+  width:8px;height:8px;border-radius:50%;
+  animation:slideDot 2s linear infinite;
+}
+.dot2{animation-delay:0.67s;}
+.dot3{animation-delay:1.33s;}
+
+.rt-dot{background:var(--cyan);box-shadow:0 0 8px var(--cyan);}
+.batch-dot{background:var(--green);box-shadow:0 0 8px var(--green);}
+
+/* legend / description box */
+.desc-grid{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:16px;margin-top:36px;
+}
+.desc-card{
+  background:rgba(255,255,255,0.02);
+  border:1px solid var(--border);
+  border-radius:10px;padding:16px;
+}
+.desc-card .step-num{
+  font-family:'JetBrains Mono',monospace;
+  font-size:10px;font-weight:700;
+  letter-spacing:0.1em;margin-bottom:6px;
+}
+.rt-pipeline .desc-card .step-num{color:var(--cyan);}
+.batch-pipeline .desc-card .step-num{color:var(--green);}
+.desc-card h4{font-size:13px;font-weight:700;color:var(--white);margin-bottom:4px;}
+.desc-card p{font-size:12px;color:var(--muted);line-height:1.5;font-weight:300;}
+
+/* latency badge */
+.stat-row{
+  display:flex;flex-wrap:wrap;gap:12px;
+  margin-top:28px;padding-top:24px;
+  border-top:1px solid var(--border);
+}
+.stat{
+  flex:1;min-width:120px;
+  background:rgba(255,255,255,0.02);
+  border:1px solid var(--border);
+  border-radius:8px;padding:12px 16px;
+  text-align:center;
+}
+.stat-val{
+  font-family:'JetBrains Mono',monospace;
+  font-size:20px;font-weight:700;
+  display:block;margin-bottom:2px;
+}
+.rt-pipeline .stat-val{color:var(--cyan);}
+.batch-pipeline .stat-val{color:var(--green);}
+.stat-key{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:0.06em;}
+
+@media(max-width:700px){
+  .nodes{gap:0;justify-content:flex-start;}
+  .node-box{width:90px;min-height:80px;}
+  .connector{width:40px;}
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="header">
+    <div class="eyebrow">// architecture diagrams</div>
+    <h1>CDC <span>ETL</span> Pipeline</h1>
+    <p>Two complementary pipelines — one for real-time change capture, one for orchestrated batch processing.</p>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active-rt" onclick="show('rt')">⚡ Real-Time CDC Pipeline</button>
+    <button class="tab" onclick="show('batch')">🔁 Batch ETL Pipeline</button>
+  </div>
+
+  <!-- ═══════════════ REAL-TIME PIPELINE ═══════════════ -->
+  <div class="pipeline-section rt-pipeline visible" id="rt">
+    <div class="pipeline-wrap">
+      <div class="pipeline-title">
+        ⚡ Real-Time Change Data Capture
+        <span class="pill">STREAMING</span>
+      </div>
+
+      <div class="nodes">
+
+        <!-- PostgreSQL -->
+        <div class="node">
+          <div class="node-box n-postgres">
+            <div class="node-icon">🐘</div>
+            <div class="node-name">PostgreSQL</div>
+            <div class="node-sub">WAL Logs<br/>Source DB</div>
+          </div>
+          <div class="node-label">SOURCE</div>
+        </div>
+
+        <div class="connector">
+          <div class="conn-line" style="position:relative;height:2px;background:rgba(0,212,255,0.2);">
+            <div class="dot rt-dot dot1" style="position:absolute;top:50%;transform:translateY(-50%);width:8px;height:8px;border-radius:50%;background:var(--cyan);box-shadow:0 0 8px var(--cyan);animation:slideDot 2s linear infinite;"></div>
+            <div class="dot rt-dot dot2" style="position:absolute;top:50%;transform:translateY(-50%);width:8px;height:8px;border-radius:50%;background:var(--cyan);box-shadow:0 0 8px var(--cyan);animation:slideDot 2s linear infinite;animation-delay:0.67s;"></div>
+          </div>
+          <div class="conn-label">WAL<br/>READ</div>
+        </div>
+
+        <!-- Debezium -->
+        <div class="node">
+          <div class="node-box n-debezium">
+            <div class="node-icon">🔬</div>
+            <div class="node-name">Debezium</div>
+            <div class="node-sub">CDC Connector<br/>Change Events</div>
+          </div>
+          <div class="node-label">CAPTURE</div>
+        </div>
+
+        <div class="connector">
+          <div class="conn-line" style="position:relative;height:2px;background:rgba(0,212,255,0.2);">
+            <div class="dot rt-dot" style="position:absolute;top:50%;transform:translateY(-50%);width:8px;height:8px;border-radius:50%;background:var(--cyan);box-shadow:0 0 8px var(--cyan);animation:slideDot 2s linear infinite;animation-delay:0.3s;"></div>
+            <div class="dot rt-dot" style="position:absolute;top:50%;transform:translateY(-50%);width:8px;height:8px;border-radius:50%;background:var(--cyan);box-shadow:0 0 8px var(--cyan);animation:slideDot 2s linear infinite;animation-delay:1s;"></div>
+          </div>
+          <div class="conn-label">EVENTS<br/>PUBLISH</div>
+        </div>
+
+        <!-- Kafka -->
+        <div class="node">
+          <div class="node-box n-kafka">
+            <div class="node-icon">📨</div>
+            <div class="node-name">Kafka</div>
+            <div class="node-sub">Topic Queue<br/>Fault-Tolerant</div>
+          </div>
+          <div class="node-label">STREAM</div>
+        </div>
+
+        <div class="connector">
+          <div class="conn-line" style="position:relative;height:2px;background:rgba(0,212,255,0.2);">
+            <div class="dot rt-dot" style="position:absolute;top:50%;transform:translateY(-50%);width:8px;height:8px;border-radius:50%;background:var(--cyan);box-shadow:0 0 8px var(--cyan);animation:slideDot 2s linear infinite;animation-delay:0.15s;"></div>
+            <div class="dot rt-dot" style="position:absolute;top:50%;transform:translateY(-50%);width:8px;height:8px;border-radius:50%;background:var(--cyan);box-shadow:0 0 8px var(--cyan);animation:slideDot 2s linear infinite;animation-delay:0.82s;"></div>
+          </div>
+          <div class="conn-label">CONSUME<br/>STREAM</div>
+        </div>
+
+        <!-- Spark -->
+        <div class="node">
+          <div class="node-box n-spark">
+            <div class="node-icon">🔥</div>
+            <div class="node-name">Spark</div>
+            <div class="node-sub">Structured<br/>Streaming</div>
+          </div>
+          <div class="node-label">PROCESS</div>
+        </div>
+
+        <div class="connector">
+          <div class="conn-line" style="position:relative;height:2px;background:rgba(0,212,255,0.2);">
+            <div class="dot rt-dot" style="position:absolute;top:50%;transform:translateY(-50%);width:8px;height:8px;border-radius:50%;background:var(--cyan);box-shadow:0 0 8px var(--cyan);animation:slideDot 2s linear infinite;animation-delay:0.5s;"></div>
+            <div class="dot rt-dot" style="position:absolute;top:50%;transform:translateY(-50%);width:8px;height:8px;border-radius:50%;background:var(--cyan);box-shadow:0 0 8px var(--cyan);animation:slideDot 2s linear infinite;animation-delay:1.17s;"></div>
+          </div>
+          <div class="conn-label">WRITE<br/>SINK</div>
+        </div>
+
+        <!-- Sink -->
+        <div class="node">
+          <div class="node-box n-sink">
+            <div class="node-icon">🗄️</div>
+            <div class="node-name">Data Sink</div>
+            <div class="node-sub">AWS / DWH<br/>Replicated DB</div>
+          </div>
+          <div class="node-label">TARGET</div>
+        </div>
+
+      </div><!-- /nodes -->
+
+      <!-- Step descriptions -->
+      <div class="desc-grid">
+        <div class="desc-card">
+          <div class="step-num">STEP 01 — CAPTURE</div>
+          <h4>PostgreSQL WAL Tailing</h4>
+          <p>Debezium connects to Postgres via logical replication, reading the Write-Ahead Log to detect every INSERT, UPDATE, and DELETE without touching application code.</p>
+        </div>
+        <div class="desc-card">
+          <div class="step-num">STEP 02 — STREAM</div>
+          <h4>Kafka Event Queue</h4>
+          <p>Change events are published to Kafka topics — one per table. Kafka guarantees durability, ordering, and fan-out to multiple consumers with configurable retention.</p>
+        </div>
+        <div class="desc-card">
+          <div class="step-num">STEP 03 — PROCESS</div>
+          <h4>Spark Structured Streaming</h4>
+          <p>Spark consumes Kafka topics in micro-batches, applies schema transforms, deduplication, and upsert logic before writing to the downstream target.</p>
+        </div>
+        <div class="desc-card">
+          <div class="step-num">STEP 04 — REPLICATE</div>
+          <h4>Real-Time Sync to Target</h4>
+          <p>Final data lands in the target store — a replicated Postgres DB, AWS Redshift, or S3-backed data lake — keeping it continuously in sync with the source.</p>
+        </div>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat"><span class="stat-val">&lt; 1s</span><div class="stat-key">END-TO-END LATENCY</div></div>
+        <div class="stat"><span class="stat-val">0</span><div class="stat-key">DATA LOSS RISK</div></div>
+        <div class="stat"><span class="stat-val">∞</span><div class="stat-key">SCALABLE CONSUMERS</div></div>
+        <div class="stat"><span class="stat-val">3x</span><div class="stat-key">KAFKA REPLICATION FACTOR</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ BATCH PIPELINE ═══════════════ -->
+  <div class="pipeline-section batch-pipeline" id="batch">
+    <div class="pipeline-wrap">
+      <div class="pipeline-title">
+        🔁 Batch ETL Pipeline
+        <span class="pill">ORCHESTRATED</span>
+      </div>
+
+      <div class="nodes">
+
+        <!-- PostgreSQL -->
+        <div class="node">
+          <div class="node-box n-postgres">
+            <div class="node-icon">🐘</div>
+            <div class="node-name">PostgreSQL</div>
+            <div class="node-sub">Transactional<br/>Source DB</div>
+          </div>
+          <div class="node-label">SOURCE</div>
+        </div>
+
+        <div class="connector">
+          <div class="conn-line" style="position:relative;height:2px;background:rgba(0,255,157,0.2);">
+            <div class="dot batch-dot" style="position:absolute;top:50%;transform:translateY(-50%);width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:slideDot 2.4s linear infinite;"></div>
+            <div class="dot batch-dot" style="position:absolute;top:50%;transform:translateY(-50%);width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:slideDot 2.4s linear infinite;animation-delay:0.8s;"></div>
+          </div>
+          <div class="conn-label">EXTRACT<br/>QUERY</div>
+        </div>
+
+        <!-- Airflow -->
+        <div class="node">
+          <div class="node-box n-airflow">
+            <div class="node-icon">🌬️</div>
+            <div class="node-name">Airflow</div>
+            <div class="node-sub">DAG Scheduler<br/>Orchestrator</div>
+          </div>
+          <div class="node-label">ORCHESTRATE</div>
+        </div>
+
+        <div class="connector">
+          <div class="conn-line" style="position:relative;height:2px;background:rgba(0,255,157,0.2);">
+            <div class="dot batch-dot" style="position:absolute;top:50%;transform:translateY(-50%);width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:slideDot 2.4s linear infinite;animation-delay:0.4s;"></div>
+            <div class="dot batch-dot" style="position:absolute;top:50%;transform:translateY(-50%);width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:slideDot 2.4s linear infinite;animation-delay:1.2s;"></div>
+          </div>
+          <div class="conn-label">TRIGGER<br/>TASKS</div>
+        </div>
+
+        <!-- Python -->
+        <div class="node">
+          <div class="node-box n-python">
+            <div class="node-icon">🐍</div>
+            <div class="node-name">Python</div>
+            <div class="node-sub">ETL Scripts<br/>Transform Logic</div>
+          </div>
+          <div class="node-label">TRANSFORM</div>
+        </div>
+
+        <div class="connector">
+          <div class="conn-line" style="position:relative;height:2px;background:rgba(0,255,157,0.2);">
+            <div class="dot batch-dot" style="position:absolute;top:50%;transform:translateY(-50%);width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:slideDot 2.4s linear infinite;animation-delay:0.2s;"></div>
+            <div class="dot batch-dot" style="position:absolute;top:50%;transform:translateY(-50%);width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:slideDot 2.4s linear infinite;animation-delay:1.0s;"></div>
+          </div>
+          <div class="conn-label">DISTRIBUTE<br/>COMPUTE</div>
+        </div>
+
+        <!-- Spark -->
+        <div class="node">
+          <div class="node-box n-spark">
+            <div class="node-icon">🔥</div>
+            <div class="node-name">Spark</div>
+            <div class="node-sub">Batch Jobs<br/>Large-Scale ETL</div>
+          </div>
+          <div class="node-label">PROCESS</div>
+        </div>
+
+        <div class="connector">
+          <div class="conn-line" style="position:relative;height:2px;background:rgba(0,255,157,0.2);">
+            <div class="dot batch-dot" style="position:absolute;top:50%;transform:translateY(-50%);width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:slideDot 2.4s linear infinite;animation-delay:0.6s;"></div>
+            <div class="dot batch-dot" style="position:absolute;top:50%;transform:translateY(-50%);width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:slideDot 2.4s linear infinite;animation-delay:1.4s;"></div>
+          </div>
+          <div class="conn-label">DEPLOY<br/>CLOUD</div>
+        </div>
+
+        <!-- AWS -->
+        <div class="node">
+          <div class="node-box n-aws">
+            <div class="node-icon">☁️</div>
+            <div class="node-name">AWS</div>
+            <div class="node-sub">S3 / Redshift<br/>Docker / K8s</div>
+          </div>
+          <div class="node-label">TARGET</div>
+        </div>
+
+      </div><!-- /nodes -->
+
+      <!-- Step descriptions -->
+      <div class="desc-grid">
+        <div class="desc-card">
+          <div class="step-num">STEP 01 — ORCHESTRATE</div>
+          <h4>Airflow DAG Scheduling</h4>
+          <p>Airflow defines the pipeline as a Directed Acyclic Graph (DAG). It schedules runs on a cron, monitors task health, retries failures, and triggers downstream tasks only when upstream succeeds.</p>
+        </div>
+        <div class="desc-card">
+          <div class="step-num">STEP 02 — EXTRACT</div>
+          <h4>Python Extraction Scripts</h4>
+          <p>Python scripts query PostgreSQL in bulk — using incremental watermarks or full snapshots — extracting raw records and staging them for transformation.</p>
+        </div>
+        <div class="desc-card">
+          <div class="step-num">STEP 03 — TRANSFORM</div>
+          <h4>Spark Batch Processing</h4>
+          <p>Spark runs distributed batch jobs: cleaning nulls, joining datasets, applying business rules, aggregating metrics, and reshaping data into target schemas at scale.</p>
+        </div>
+        <div class="desc-card">
+          <div class="step-num">STEP 04 — LOAD</div>
+          <h4>AWS Cloud Delivery</h4>
+          <p>Processed data lands in AWS — S3 for raw/parquet storage, Redshift for analytics, or RDS for operational use. Docker + Kubernetes ensures reproducible, scalable deployment.</p>
+        </div>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat"><span class="stat-val">TB+</span><div class="stat-key">BATCH VOLUME CAPACITY</div></div>
+        <div class="stat"><span class="stat-val">DAG</span><div class="stat-key">DEPENDENCY GRAPH</div></div>
+        <div class="stat"><span class="stat-val">Auto</span><div class="stat-key">RETRY ON FAILURE</div></div>
+        <div class="stat"><span class="stat-val">K8s</span><div class="stat-key">CONTAINER ORCHESTRATION</div></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  function show(id) {
+    document.querySelectorAll('.pipeline-section').forEach(s => s.classList.remove('visible'));
+    document.getElementById(id).classList.add('visible');
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active-rt','active-batch'));
+    const btn = document.querySelectorAll('.tab');
+    if(id === 'rt') btn[0].classList.add('active-rt');
+    else btn[1].classList.add('active-batch');
+  }
+</script>
+</body>
+</html>
